@@ -63,7 +63,7 @@ type InaraResponse struct {
 }
 
 type InaraResponseEvent struct {
-	EventCustomID int               `json:"eventCustomID"`
-	EventStatus   int               `json:"eventStatus"`
-	EventData     InaraResponseData `json:"eventData"`
+	EventCustomID int          `json:"eventCustomID"`
+	EventStatus   int          `json:"eventStatus"`
+	EventData     InaraProfile `json:"eventData"`
 }
