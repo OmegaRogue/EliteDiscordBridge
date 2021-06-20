@@ -110,12 +110,17 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Fatalf("error on Command Register: %+v", err)
 		}
 	}
-	if strings.HasPrefix(m.Content, "!build") {
-		log.Println("build")
-		parts := strings.Split(m.Content, " ")
-		err := ShipBuildCommand(context.TODO(), parts, s, m)
+	if strings.Contains(m.Content, "coriolis.io") || strings.Contains(m.Content, "orbis.zone") {
+		err := ShipBuildCoriolis(context.TODO(), m.Content, s, m)
 		if err != nil {
-			log.Fatalf("error on Command Ship Build: %+v", err)
+			log.Fatalf("error on Command Coriolis Ship Build: %+v", err)
+		}
+	}
+
+	if strings.Contains(m.Content, "edsy") {
+		err := ShipBuildEDSY(context.TODO(), m.Content, s, m)
+		if err != nil {
+			log.Fatalf("error on Command EDSY Ship Build: %+v", err)
 		}
 	}
 
