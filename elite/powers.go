@@ -1,4 +1,4 @@
-package main
+package elite
 
 type Power int
 

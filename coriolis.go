@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"time"
 
 	"edDiscord/coriolis"
 	"github.com/bwmarrin/discordgo"
+	"github.com/chromedp/cdproto"
 	"github.com/chromedp/chromedp"
 )
 
@@ -15,20 +18,47 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 	if err != nil {
 		return fmt.Errorf("parse url: %w", err)
 	}
-	ctx, cancel := chromedp.NewContext(ctx)
+
+	allocatorContext, cancel := chromedp.NewRemoteAllocator(ctx, "ws://172.27.208.1:9223")
 	defer cancel()
+	ctx, cancel = chromedp.NewContext(
+		allocatorContext,
+		chromedp.WithLogf(devToolHandler),
+		chromedp.WithErrorf(devToolHandler),
+		chromedp.WithDebugf(devToolHandler),
+		chromedp.WithBrowserOption(
+			chromedp.WithBrowserDebugf(devToolHandler),
+			chromedp.WithBrowserDebugf(devToolHandler),
+			chromedp.WithBrowserLogf(devToolHandler),
+		),
+	)
+	defer cancel()
+
 	res := ""
 	err = chromedp.Run(
 		ctx,
 		chromedp.Navigate(buildURL.String()),
-		chromedp.EvaluateAsDevTools(
-			"document.querySelector('#build > button:nth-child(7)').click();document.querySelector('textarea.cb').textContent",
-			&res,
+		chromedp.Evaluate(
+			"console.stdlog = console.log.bind(console);console.logs = [];console.log = function(){console.logs.push(Array.from(arguments));console.stdlog.apply(console, arguments);}",
+			nil,
 		),
+
+		chromedp.WaitReady("#outfit"),
+		chromedp.Evaluate("", &res),
+
+		// chromedp.EvaluateAsDevTools(
+		// 	"document.querySelector('#build > button:nth-child(7)').click();document.querySelector('textarea.cb').textContent",
+		// 	&res,
+		// ),
 	)
 	if err != nil {
 		return fmt.Errorf("browser: %w", err)
 	}
+
+	fmt.Println(res)
+
+	time.Sleep(time.Minute * 5)
+
 	var t coriolis.ShipLoadout
 	t.UnmarshalJSON([]byte(res))
 	s.ChannelMessageDelete(m.ChannelID, m.ID)
@@ -181,4 +211,28 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 	}
 
 	return nil
+}
+
+func devToolHandler(s string, is ...interface{}) {
+	/*
+	   Uncomment the following line to have a log of the events
+	   log.Printf(s, is...)
+	*/
+	/*
+	   We need this to be on a separate gorutine
+	   otherwise we block the browser and we don't receive messages
+	*/
+	go func() {
+		for _, elem := range is {
+			var msg cdproto.Message
+			// The CDP messages are sent as strings so we need to convert them back
+			err := json.Unmarshal([]byte(fmt.Sprintf("%s", elem)), &msg)
+			// possible source of empty msg!!!!!!!!!!!!!
+			if err != nil {
+				log.Println(err)
+				log.Printf("Faulty element:\n%v\n", fmt.Sprintf("%s", elem))
+			}
+
+		}
+	}()
 }

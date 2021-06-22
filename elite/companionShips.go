@@ -1,4 +1,4 @@
-package main
+package elite
 
 type SLEF struct {
 	Header struct {
