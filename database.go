@@ -1,8 +1,8 @@
 package main
 
 import (
-	"edDiscord/elite"
 	"edDiscord/inara"
+	elite "github.com/OmegaRogue/eliteJournal"
 	"gorm.io/gorm"
 )
 

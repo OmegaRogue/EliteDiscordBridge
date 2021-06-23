@@ -1,65 +1,31 @@
+//go:generate go-enum -f=$GOFILE --marshal --noprefix --sqlnullint
+
 package inara
 
-import "edDiscord/elite"
-
-type Rank int
-
-const (
-	Outsider Rank = iota - 1
-	Recruit
-	Reserve
-	CoPilot
-	Pilot
-	Wingman
-	SeniorWingman
-	Veteran
-	FlightLeader
-	FlightGroupLeader
-	OperationsOfficer
-	ChiefOfStaff
-	DeputySquadronCommander
-	SquadronCommander
+import (
+	elite "github.com/OmegaRogue/eliteJournal"
 )
 
-var rankStrings = map[string]Rank{
-	"recruit":                   Recruit,
-	"reserve":                   Reserve,
-	"co-pilot":                  CoPilot,
-	"pilot":                     Pilot,
-	"wingman":                   Wingman,
-	"senior wingman":            SeniorWingman,
-	"veteran":                   Veteran,
-	"flight leader":             FlightLeader,
-	"flight group leader":       FlightGroupLeader,
-	"operations officer":        OperationsOfficer,
-	"chief of staff":            ChiefOfStaff,
-	"deputy squadron commander": DeputySquadronCommander,
-	"squadron commander":        SquadronCommander,
-}
-var stringRanks = map[Rank]string{
-	Outsider:                "none",
-	Recruit:                 "recruit",
-	Reserve:                 "reserve",
-	CoPilot:                 "co-pilot",
-	Pilot:                   "pilot",
-	Wingman:                 "wingman",
-	SeniorWingman:           "senior wingman",
-	Veteran:                 "veteran",
-	FlightLeader:            "flight leader",
-	FlightGroupLeader:       "flight group leader",
-	OperationsOfficer:       "operations officer",
-	ChiefOfStaff:            "chief of staff",
-	DeputySquadronCommander: "deputy squadron commander",
-	SquadronCommander:       "squadron commander",
-}
-
-func (r Rank) ToString() string {
-	return stringRanks[r]
-}
-
-func GetInaraRank(rank string) Rank {
-	return rankStrings[rank]
-}
+// Rank is an enumeration of Inara Squadron Ranks
+/*
+ENUM(
+outsider=-1
+recruit
+reserve
+co-pilot
+pilot
+wingman
+senior wingman
+veteran
+flight leader
+flight group leader
+operations officer
+chief of staff
+deputy squadron commander
+squadron commander
+)
+*/
+type Rank int
 
 var rankMap = map[Rank]elite.Rank{
 	Outsider:                elite.None,

@@ -3,6 +3,7 @@ module edDiscord
 go 1.16
 
 require (
+	github.com/OmegaRogue/eliteJournal v0.1.1
 	github.com/ahmetb/go-linq/v3 v3.2.0
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
 	github.com/bwmarrin/discordgo v0.23.3-0.20210617211910-e72c457cb4ae
@@ -16,4 +17,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.11
+
 )
+
+//replace github.com/OmegaRogue/eliteJournal => ../eliteJournal

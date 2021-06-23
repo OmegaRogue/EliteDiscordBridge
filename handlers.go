@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"edDiscord/elite"
 	"edDiscord/inara"
+	elite "github.com/OmegaRogue/eliteJournal"
 	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
@@ -185,10 +185,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	eliteRank := Role{EliteRank: elite.None}
 	for _, role := range userRoles {
 		if role.InaraRank > inara.Outsider {
-			inaraRanks = append(inaraRanks, role)
+			if role.ServerID == uint(guildFlake) {
+				inaraRanks = append(inaraRanks, role)
+			}
+
 		}
 		if role.EliteRank > elite.None {
-			eliteRanks = append(eliteRanks, role)
+			if role.ServerID == uint(guildFlake) {
+				eliteRanks = append(eliteRanks, role)
+			}
+
 		}
 	}
 
@@ -252,25 +258,34 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	var rightInaraRole Role
-	db.Where("inara_rank = ? AND server_id = ?", user.InaraRank, uint(guildFlake)).First(&rightInaraRole)
+	db.Where("inara_rank = ? AND server_id = ?", user.InaraRank, uint(guildFlake)).Limit(1).Find(&rightInaraRole)
 
 	var rightEliteRole Role
-	db.Where("elite_rank = ? AND server_id = ?", user.EliteRank, uint(guildFlake)).First(&rightEliteRole)
+	db.Where("elite_rank = ? AND server_id = ?", user.EliteRank, uint(guildFlake)).Limit(1).Find(&rightEliteRole)
 
 	if rightInaraRole.ID == rightEliteRole.ID {
-		err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
-		if err != nil {
-			log.Fatalf("add role: %+v", err)
+		if rightInaraRole.ID != 0 && rightEliteRole.ID != 0 {
+			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
+			if err != nil {
+				log.Fatalf("add role: %+v", err)
+			}
 		}
+
 	} else {
-		err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
-		if err != nil {
-			log.Fatalf("add role: %+v", err)
+		if rightEliteRole.ID != 0 {
+			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
+			if err != nil {
+				log.Fatalf("add role: %+v", err)
+			}
 		}
-		err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightInaraRole.ID).String())
-		if err != nil {
-			log.Fatalf("add role: %+v", err)
+
+		if rightInaraRole.ID != 0 {
+			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightInaraRole.ID).String())
+			if err != nil {
+				log.Fatalf("add role: %+v", err)
+			}
 		}
+
 	}
 
 	log.Println(inaraRanks)

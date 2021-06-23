@@ -7,8 +7,8 @@ import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 
-	"edDiscord/elite"
 	"edDiscord/inara"
+	elite "github.com/OmegaRogue/eliteJournal"
 	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
@@ -233,13 +233,21 @@ var (
 				InaraSquadronID: inaraSquadron.ID,
 			}
 
+			allegiance, err := elite.ParseAllegiance(inaraProfileData.PreferredAllegianceName)
+			if err != nil {
+				log.Fatalf("parse allegiance: %+v", err)
+			}
+			power, err := elite.ParsePower(inaraProfileData.PreferredPowerName)
+			if err != nil {
+				log.Fatalf("parse power: %+v", err)
+			}
 			inaraUser := InaraUser{
 				Model:           gorm.Model{ID: uint(inaraProfileData.UserID)},
 				UserID:          uint(memberFlake),
 				Name:            inaraProfileData.UserName,
 				CommanderName:   inaraProfileData.CommanderName,
-				Allegiance:      elite.ParseAllegiance(inaraProfileData.PreferredAllegianceName),
-				Power:           elite.ParsePower(inaraProfileData.PreferredPowerName),
+				Allegiance:      allegiance,
+				Power:           power,
 				AvatarURL:       inaraProfileData.AvatarImageURL,
 				URL:             inaraProfileData.InaraURL,
 				InaraWingID:     inaraWing.ID,
@@ -364,7 +372,7 @@ var (
 								Content: fmt.Sprintf(
 									"Linked Role %s to inara rank %v",
 									role.Mention(),
-									dbRole.InaraRank.ToString(),
+									dbRole.InaraRank,
 								),
 							},
 						},
@@ -376,7 +384,11 @@ var (
 						i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionApplicationCommandResponseData{
-								Content: fmt.Sprintf("Linked Role %s to elite dangerous rank %v", role.Mention(), dbRole.EliteRank.ToString()),
+								Content: fmt.Sprintf(
+									"Linked Role %s to elite dangerous rank %v",
+									role.Mention(),
+									dbRole.EliteRank,
+								),
 							},
 						},
 					)
