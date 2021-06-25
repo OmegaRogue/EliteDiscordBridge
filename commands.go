@@ -4,31 +4,15 @@ import (
 	"fmt"
 	"strconv"
 
-	nested "github.com/antonfisher/nested-logrus-formatter"
-	"github.com/sirupsen/logrus"
-
 	"edDiscord/inara"
 	elite "github.com/OmegaRogue/eliteJournal"
 	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
-	"github.com/mattn/go-colorable"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-var log *logrus.Logger
-
-func init() {
-	log = logrus.New()
-	log.SetFormatter(
-		&nested.Formatter{
-			HideKeys:    true,
-			FieldsOrder: []string{"component", "category"},
-		},
-	)
-	log.SetOutput(colorable.NewColorableStdout())
-}
 
 var (
 	commands = []*discordgo.ApplicationCommand{
@@ -193,20 +177,24 @@ var (
 
 		"register": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			inaraProfileData, err := inaraClient.GetProfile(i.Data.Options[1].StringValue())
-			log.WithField("Command", "Register")
 			if err != nil {
-				log.Fatalf("get inara profile: %+v", err)
+				log.Err(err).Interface("InteractionCreate", i).Msg("get inara profile")
+				return
 			}
 
 			guildFlake, err := snowflake.ParseString(i.GuildID)
 			if err != nil {
-				log.WithField("GuildID", i.GuildID).
-					Fatalf("parse guild snowflake: %+v", err)
+				log.Err(err).Interface("InteractionCreate", i).Msg("parse guild snowflake")
+				return
 			}
+			log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 			memberFlake, err := snowflake.ParseString(i.Data.Options[0].UserValue(s).ID)
 			if err != nil {
-				log.WithField("UserValue", i.Data.Options[0].UserValue(s)).
-					Fatalf("parse member snowflake: %+v, ", err)
+				log.Err(err).Interface("InteractionCreate", i).Interface(
+					"UserValue",
+					i.Data.Options[0].UserValue(s),
+				).Msg("parse member snowflake")
+				return
 			}
 
 			var server Server
@@ -235,11 +223,13 @@ var (
 
 			allegiance, err := elite.ParseAllegiance(inaraProfileData.PreferredAllegianceName)
 			if err != nil {
-				log.Fatalf("parse allegiance: %+v", err)
+				log.Err(err).Interface("InteractionCreate", i).Msg("parse allegiance")
+				return
 			}
 			power, err := elite.ParsePower(inaraProfileData.PreferredPowerName)
 			if err != nil {
-				log.Fatalf("parse power: %+v", err)
+				log.Err(err).Interface("InteractionCreate", i).Msg("parse power")
+				return
 			}
 			inaraUser := InaraUser{
 				Model:           gorm.Model{ID: uint(inaraProfileData.UserID)},
@@ -336,7 +326,7 @@ var (
 				},
 			).Create(&inaraUser)
 
-			s.InteractionRespond(
+			err = s.InteractionRespond(
 				i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionApplicationCommandResponseData{
@@ -344,6 +334,10 @@ var (
 					},
 				},
 			)
+			if err != nil {
+				log.Err(err).Interface("InteractionCreate", i).Msg("respond")
+				return
+			}
 		},
 		"link": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
@@ -354,8 +348,10 @@ var (
 				role := i.Data.Options[0].Options[0].Options[0].RoleValue(s, i.GuildID)
 				roleFlake, err := snowflake.ParseString(role.ID)
 				if err != nil {
-					log.Fatalf("parse roleFlake: %+v", err)
+					log.Err(err).Interface("InteractionCreate", i).Msg("parse roleFlake")
+					return
 				}
+				log.Trace().Interface("role", role).Msg("parse role snowflake")
 				dbRole := Role{
 					Model: gorm.Model{ID: uint(roleFlake)},
 				}
@@ -365,7 +361,7 @@ var (
 					rank := inara.Rank(i.Data.Options[0].Options[0].Options[1].IntValue())
 					db.Model(&dbRole).Update("inara_rank", rank)
 
-					s.InteractionRespond(
+					err := s.InteractionRespond(
 						i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionApplicationCommandResponseData{
@@ -377,10 +373,14 @@ var (
 							},
 						},
 					)
+					if err != nil {
+						log.Err(err).Interface("InteractionCreate", i).Msg("error on respond")
+						return
+					}
 				case "elite":
 					rank := elite.Rank(i.Data.Options[0].Options[0].Options[1].IntValue())
 					db.Model(&dbRole).Update("elite_rank", rank)
-					s.InteractionRespond(
+					err := s.InteractionRespond(
 						i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionApplicationCommandResponseData{
@@ -392,6 +392,10 @@ var (
 							},
 						},
 					)
+					if err != nil {
+						log.Err(err).Interface("InteractionCreate", i).Msg("error on respond")
+						return
+					}
 				}
 
 			}
@@ -412,16 +416,4 @@ func getPilotRankPredicate(rankName string) func(i interface{}) bool {
 	return func(i interface{}) bool {
 		return i.(inara.PilotRank).RankName == rankName
 	}
-}
-
-func AssignInaraRanks(parts []string, s *discordgo.Session, m *discordgo.MessageCreate) error {
-	_, err := snowflake.ParseString(m.GuildID)
-	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
-	}
-	_, err = snowflake.ParseString(m.Author.ID)
-	if err != nil {
-		log.Fatalf("parse member snowflake: %+v", err)
-	}
-	return nil
 }

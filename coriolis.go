@@ -11,12 +11,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/chromedp"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session, m *discordgo.MessageCreate) error {
 	buildURL, err := url.Parse(content)
 	if err != nil {
-		return fmt.Errorf("parse url: %w", err)
+		return errors.Errorf("parse url: %w", err)
 	}
 
 	allocatorContext, cancel := chromedp.NewRemoteAllocator(ctx, "ws://172.27.208.1:9223")
@@ -39,7 +41,7 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 		ctx,
 		chromedp.Navigate(buildURL.String()),
 		chromedp.Evaluate(
-			"console.stdlog = console.log.bind(console);console.logs = [];console.log = function(){console.logs.push(Array.from(arguments));console.stdlog.apply(console, arguments);}",
+			"console.stdlog = console.log2.bind(console);console.logs = [];console.log2 = function(){console.logs.push(Array.from(arguments));console.stdlog.apply(console, arguments);}",
 			nil,
 		),
 
@@ -52,7 +54,7 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 		// ),
 	)
 	if err != nil {
-		return fmt.Errorf("browser: %w", err)
+		return errors.Errorf("browser: %w", err)
 	}
 
 	fmt.Println(res)
@@ -207,16 +209,16 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("send Embed: %w", err)
+		return errors.Errorf("send Embed: %w", err)
 	}
 
 	return nil
 }
 
-func devToolHandler(s string, is ...interface{}) {
+func devToolHandler(_ string, is ...interface{}) {
 	/*
-	   Uncomment the following line to have a log of the events
-	   log.Printf(s, is...)
+	   Uncomment the following line to have a log2 of the events
+	   log2.Printf(s, is...)
 	*/
 	/*
 	   We need this to be on a separate gorutine
@@ -229,8 +231,7 @@ func devToolHandler(s string, is ...interface{}) {
 			err := json.Unmarshal([]byte(fmt.Sprintf("%s", elem)), &msg)
 			// possible source of empty msg!!!!!!!!!!!!!
 			if err != nil {
-				log.Println(err)
-				log.Printf("Faulty element:\n%v\n", fmt.Sprintf("%s", elem))
+				log.Err(err).Interface("element", msg).Msg("Faulty element")
 			}
 
 		}

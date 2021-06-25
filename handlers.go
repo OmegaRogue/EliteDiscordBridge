@@ -9,19 +9,23 @@ import (
 	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-func roleCreated(s *discordgo.Session, e *discordgo.GuildRoleCreate) {
+func roleCreated(_ *discordgo.Session, e *discordgo.GuildRoleCreate) {
+	log.Trace().Interface("GuildRoleCreate", e).Msg("received event")
 	guildFlake, err := snowflake.ParseString(e.GuildID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	roleFlake, err := snowflake.ParseString(e.Role.ID)
 	if err != nil {
-		log.Fatalf("parse role snowflake: %+v", err)
+		log.Err(err).Interface("role", e.Role).Msg("parse role snowflake")
 	}
+	log.Trace().Interface("role", e.Role).Msg("parse role snowflake")
 	db.FirstOrCreate(
 		&Role{
 			Model:    gorm.Model{ID: uint(roleFlake)},
@@ -33,15 +37,18 @@ func roleCreated(s *discordgo.Session, e *discordgo.GuildRoleCreate) {
 	)
 }
 
-func roleUpdated(s *discordgo.Session, e *discordgo.GuildRoleUpdate) {
+func roleUpdated(_ *discordgo.Session, e *discordgo.GuildRoleUpdate) {
+	log.Trace().Interface("GuildRoleUpdate", e).Msg("received event")
 	guildFlake, err := snowflake.ParseString(e.GuildID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	roleFlake, err := snowflake.ParseString(e.Role.ID)
 	if err != nil {
-		log.Fatalf("parse role snowflake: %+v", err)
+		log.Err(err).Interface("role", e.Role).Msg("parse role snowflake")
 	}
+	log.Trace().Interface("role", e.Role).Msg("parse role snowflake")
 	db.Updates(
 		&Role{
 			Model:    gorm.Model{ID: uint(roleFlake)},
@@ -55,16 +62,19 @@ func roleUpdated(s *discordgo.Session, e *discordgo.GuildRoleUpdate) {
 }
 
 func guildCreated(s *discordgo.Session, e *discordgo.GuildCreate) {
+	log.Trace().Interface("GuildCreate", e).Msg("received event")
 	guildFlake, err := snowflake.ParseString(e.ID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	db.FirstOrCreate(&Server{Model: gorm.Model{ID: uint(guildFlake)}})
 	for _, role := range e.Roles {
 		roleFlake, err := snowflake.ParseString(role.ID)
 		if err != nil {
-			log.Fatalf("parse role snowflake: %+v", err)
+			log.Err(err).Interface("role", role).Msg("parse role snowflake")
 		}
+		log.Trace().Interface("role", role).Msg("parse role snowflake")
 		db.FirstOrCreate(
 			&Role{
 				Model:    gorm.Model{ID: uint(roleFlake)},
@@ -77,28 +87,33 @@ func guildCreated(s *discordgo.Session, e *discordgo.GuildCreate) {
 	}
 
 }
-func guildDelete(s *discordgo.Session, e *discordgo.GuildDelete) {
+func guildDelete(_ *discordgo.Session, e *discordgo.GuildDelete) {
+	log.Trace().Interface("GuildDelete", e).Msg("received event")
 	guildFlake, err := snowflake.ParseString(e.ID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	db.Delete(&Server{Model: gorm.Model{ID: uint(guildFlake)}})
 
 }
 
-func guildUpdate(s *discordgo.Session, e *discordgo.GuildUpdate) {
+func guildUpdate(_ *discordgo.Session, e *discordgo.GuildUpdate) {
+	log.Trace().Interface("GuildUpdate", e).Msg("received event")
 	guildFlake, err := snowflake.ParseString(e.ID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 
 	roles := make([]Role, len(e.Roles))
 	for i, role := range e.Roles {
 
 		roleFlake, err := snowflake.ParseString(role.ID)
 		if err != nil {
-			log.Fatalf("parse role snowflake: %+v", err)
+			log.Err(err).Interface("role", role).Msg("parse role snowflake")
 		}
+		log.Trace().Interface("role", role).Msg("parse role snowflake")
 		roles[i] = Role{
 			Model:    gorm.Model{ID: uint(roleFlake)},
 			Color:    role.Color,
@@ -114,15 +129,18 @@ func guildUpdate(s *discordgo.Session, e *discordgo.GuildUpdate) {
 	).CreateInBatches(&roles, len(roles))
 }
 
-func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+func guildMemberAdd(_ *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	log.Trace().Interface("GuildMemberAdd", m).Msg("received event")
 	guildFlake, err := snowflake.ParseString(m.GuildID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	memberFlake, err := snowflake.ParseString(m.Member.User.ID)
 	if err != nil {
-		log.Fatalf("parse member snowflake: %+v", err)
+		log.Err(err).Interface("member", m.Member).Msg("parse member snowflake")
 	}
+	log.Trace().Interface("member", m.Member).Msg("parse member snowflake")
 
 	var server Server
 	db.First(&server, uint(guildFlake))
@@ -139,6 +157,7 @@ func guildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	log.Trace().Interface("MessageCreate", m).Msg("received event")
 
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -149,17 +168,19 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	memb, err := s.GuildMember(m.GuildID, m.Author.ID)
 	if err != nil {
-		log.Fatalf("get member: %+v", err)
+		log.Err(err).Msg("get member")
 	}
 
 	memberFlake, err := snowflake.ParseString(memb.User.ID)
 	if err != nil {
-		log.Fatalf("parse member snowflake: %+v, ", err)
+		log.Trace().Interface("member", memb).Msg("parse member snowflake")
 	}
+	log.Trace().Interface("member", memb).Msg("parse member snowflake")
 	guildFlake, err := snowflake.ParseString(m.GuildID)
 	if err != nil {
-		log.Fatalf("parse guild snowflake: %+v, ", err)
+		log.Err(err).Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	}
+	log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 	user := User{Model: gorm.Model{ID: uint(memberFlake)}}
 
 	roles := make([]Role, len(m.Member.Roles))
@@ -167,8 +188,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	for i, role := range m.Member.Roles {
 		roleFlake, err := snowflake.ParseString(role)
 		if err != nil {
-			log.Fatalf("parse role snowflake: %+v, ", err)
+			log.Err(err).Interface("role", role).Msg("parse role snowflake")
 		}
+		log.Trace().Interface("role", role).Msg("parse role snowflake")
 		roles[i] = Role{Model: gorm.Model{ID: uint(roleFlake)}}
 	}
 
@@ -212,7 +234,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		for _, role := range ranksSorted {
 			err = s.GuildMemberRoleRemove(m.GuildID, m.Author.ID, snowflake.ID(role.ID).String())
 			if err != nil {
-				log.Fatalf("remove redundant roles: %+v", err)
+				log.Err(err).Msg("remove redundant roles")
 			}
 		}
 	} else if len(inaraRanks) == 1 {
@@ -233,7 +255,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		for _, role := range ranksSorted {
 			err = s.GuildMemberRoleRemove(m.GuildID, m.Author.ID, snowflake.ID(role.ID).String())
 			if err != nil {
-				log.Fatalf("remove redundant roles: %+v", err)
+				log.Err(err).Interface("role", role).Msg("remove redundant roles")
 			}
 		}
 	} else if len(eliteRanks) == 1 {
@@ -244,7 +266,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if inaraRank.InaraRank != user.InaraRank {
 			err = s.GuildMemberRoleRemove(m.GuildID, m.Author.ID, snowflake.ID(inaraRank.ID).String())
 			if err != nil {
-				log.Fatalf("remove wrong role: %+v", err)
+				log.Err(err).Interface("role", inaraRank).Msg("remove wrong role")
 			}
 		}
 	}
@@ -252,7 +274,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if eliteRank.EliteRank != user.EliteRank {
 			err = s.GuildMemberRoleRemove(m.GuildID, m.Author.ID, snowflake.ID(eliteRank.ID).String())
 			if err != nil {
-				log.Fatalf("remove wrong role: %+v", err)
+				log.Err(err).Interface("role", eliteRank).Msg("remove wrong role")
 			}
 		}
 	}
@@ -267,7 +289,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if rightInaraRole.ID != 0 && rightEliteRole.ID != 0 {
 			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
 			if err != nil {
-				log.Fatalf("add role: %+v", err)
+				log.Err(err).Interface("role", rightEliteRole).Msg("add role")
 			}
 		}
 
@@ -275,34 +297,29 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if rightEliteRole.ID != 0 {
 			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightEliteRole.ID).String())
 			if err != nil {
-				log.Fatalf("add role: %+v", err)
+				log.Err(err).Interface("role", rightEliteRole).Msg("add role")
 			}
 		}
 
 		if rightInaraRole.ID != 0 {
 			err = s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, snowflake.ID(rightInaraRole.ID).String())
 			if err != nil {
-				log.Fatalf("add role: %+v", err)
+				log.Err(err).Interface("role", rightInaraRole).Msg("add role")
 			}
 		}
 
 	}
 
-	log.Println(inaraRanks)
-	log.Println(eliteRanks)
-
-	log.Println("roles")
-
 	// if strings.Contains(m.Content, "coriolis.io") || strings.Contains(m.Content, "orbis.zone") {
 	// 	err := ShipBuildCoriolis(context.TODO(), m.Content, s, m)
 	// 	if err != nil {
-	// 		log.Fatalf("error on Command Coriolis Ship Build: %+v", err)
+	// 		log2.Fatalln("error on Command Coriolis Ship Build: %+v", err)
 	// 	}
 	// }
 	if strings.Contains(m.Content, "edsy") {
 		err := ShipBuildEDSY(context.TODO(), m.Content, s, m)
 		if err != nil {
-			log.Fatalf("error on Command EDSY Ship Build: %+v", err)
+			log.Err(err).Interface("message", m).Msg("error on Command EDSY Ship Build")
 		}
 	}
 

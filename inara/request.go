@@ -2,8 +2,9 @@ package inara
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -59,15 +60,15 @@ func (api *API) GetProfile(commander string) (Profile, error) {
 
 	r, err := api.Client.R().SetBody(data).Post("https://inara.cz/inapi/v1/")
 	if err != nil {
-		return Profile{}, fmt.Errorf("inara getProfile: %w", err)
+		return Profile{}, errors.Errorf("inara getProfile: %w", err)
 	}
 	var p Response
 	err = json.Unmarshal(r.Body(), &p)
 	if err != nil {
-		return Profile{}, fmt.Errorf("unmarshal inara profile: %w\n%v", err, string(r.Body()))
+		return Profile{}, errors.Errorf("unmarshal inara profile: %w\n%v", err, string(r.Body()))
 	}
 	if p.Events[0].EventData.UserName == "" {
-		return Profile{}, fmt.Errorf("invalid Profile: %v", commander)
+		return Profile{}, errors.Errorf("invalid Profile: %v", commander)
 	}
 	return p.Events[0].EventData, nil
 }

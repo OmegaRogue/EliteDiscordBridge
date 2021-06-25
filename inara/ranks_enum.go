@@ -6,9 +6,11 @@ package inara
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
+
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -91,7 +93,7 @@ func ParseRank(name string) (Rank, error) {
 	if x, ok := _RankValue[name]; ok {
 		return x, nil
 	}
-	return Rank(0), fmt.Errorf("%s is not a valid Rank", name)
+	return Rank(0), errors.Errorf("%s is not a valid Rank", name)
 }
 
 // MarshalText implements the text marshaller method
@@ -253,4 +255,8 @@ func (n *NullRank) UnmarshalJSON(b []byte) error {
 	}
 	err = n.Scan(x)
 	return err
+}
+
+func (x Rank) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("Rank", fmt.Sprint(x))
 }

@@ -5,8 +5,9 @@ package coriolis
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // Blueprint
@@ -451,7 +452,7 @@ func (strct *Components) UnmarshalJSON(b []byte) error {
 			}
 			utilityReceived = true
 		default:
-			return fmt.Errorf("additional property not allowed: \"" + k + "\"")
+			return errors.Errorf("additional property not allowed: \"" + k + "\"")
 		}
 	}
 	// check if hardpoints (a required property) was received
@@ -2177,7 +2178,7 @@ func (strct *Standard) UnmarshalJSON(b []byte) error {
 			}
 			thrustersReceived = true
 		default:
-			return fmt.Errorf("additional property not allowed: \"" + k + "\"")
+			return errors.Errorf("additional property not allowed: \"" + k + "\"")
 		}
 	}
 	// check if bulkheads (a required property) was received

@@ -1,10 +1,8 @@
-//go:generate go-enum -f=$GOFILE --marshal --noprefix --sqlnullint
+//go:generate go-enum -f=$GOFILE --marshal --noprefix --sqlnullint -t ../assets/zerolog.gotmpl
 
 package inara
 
-import (
-	elite "github.com/OmegaRogue/eliteJournal"
-)
+import elite "github.com/OmegaRogue/eliteJournal"
 
 // Rank is an enumeration of Inara Squadron Ranks
 /*
@@ -44,6 +42,6 @@ var rankMap = map[Rank]elite.Rank{
 	SquadronCommander:       elite.Leader,
 }
 
-func (r Rank) GetEliteRank() elite.Rank {
-	return rankMap[r]
+func (x Rank) GetEliteRank() elite.Rank {
+	return rankMap[x]
 }
