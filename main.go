@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	gormLog2 "edDiscord/gormLog"
 	"edDiscord/inara"
-	"github.com/ahmetb/go-linq/v3"
+	elite "github.com/OmegaRogue/eliteJournal"
+	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
 	"github.com/halink0803/zerolog-graylog-hook/graylog"
 	"github.com/pkg/errors"
@@ -145,7 +147,12 @@ func AnySInt(n interface{}) (int64, error) {
 
 const ComponentFieldName = "component"
 
+var SyncTimer *time.Timer
+var SyncInterval time.Duration
+
 func main() {
+	SyncInterval = time.Hour
+
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.CallerMarshalFunc = func(file string, line int) string {
@@ -200,7 +207,7 @@ func main() {
 	}
 	dg.LogLevel = logMap2[level]
 
-	gormLog := NewWithLogger(log.With().Str(ComponentFieldName, "GORM").Logger())
+	gormLog := gormLog2.NewWithLogger(log.With().Str(ComponentFieldName, "GORM").Logger())
 	gormLog.SourceField = "caller"
 	db, err = gorm.Open(
 		sqlite.Open("eliteDiscord.db"), &gorm.Config{
@@ -329,9 +336,12 @@ func main() {
 
 	log.Info().Caller().Msg("is now running. Press CTRL-C to exit.")
 
+	SyncTimer = time.NewTimer(SyncInterval)
+
 	// Wait here until CTRL-C or other term signal is received.
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	go SyncRoutine(sc)
 	<-sc
 
 	for i, v := range commands {
@@ -340,6 +350,144 @@ func main() {
 			log.Err(err).Stack().Caller().Int("i", i).Interface("command", v).Msg("delete slash command")
 			continue
 		}
+	}
+
+}
+
+func SyncRoutine(sc chan os.Signal) {
+	log.Info().Caller().Msg("Heartbeat started")
+	select {
+	case <-SyncTimer.C:
+		defer SyncTimer.Reset(SyncInterval)
+		defer func() { go SyncRoutine(sc) }()
+		log.Info().Caller().Msg("Heartbeat")
+		InaraSync()
+	case <-sc:
+		return
+
+	}
+
+}
+
+func InaraSync() {
+	var users []InaraUser
+	db.Find(&users)
+	var userNames []string
+	From(users).Select(
+		func(i interface{}) interface{} {
+			return i.(InaraUser).Name
+		}).ToSlice(&userNames)
+	profiles, err := inaraClient.GetProfiles(userNames)
+	if err != nil {
+		log.Err(err).Stack().Caller().Interface("profiles", profiles).Msg("get profiles")
+	}
+	log.Info().Stack().Caller().Interface("profiles", profiles).Msg("get profiles")
+
+	for i, inaraProfileData := range profiles {
+		inaraSquadron := InaraSquadron{
+			Model: gorm.Model{ID: uint(inaraProfileData.CommanderSquadron.SquadronID)},
+			Name:  inaraProfileData.CommanderSquadron.SquadronName,
+			URL:   inaraProfileData.CommanderSquadron.InaraURL,
+		}
+
+		inaraWing := InaraWing{
+			Model:           gorm.Model{ID: uint(inaraProfileData.CommanderWing.WingID)},
+			Name:            inaraProfileData.CommanderWing.WingName,
+			URL:             inaraProfileData.CommanderWing.InaraURL,
+			InaraSquadronID: inaraSquadron.ID,
+		}
+
+		allegiance, err := elite.ParseAllegiance(inaraProfileData.PreferredAllegianceName)
+		if err != nil {
+			log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse allegiance")
+			return
+		}
+		power, err := elite.ParsePower(inaraProfileData.PreferredPowerName)
+		if err != nil {
+			log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse power")
+			return
+		}
+		inaraUser := InaraUser{
+			Model:           gorm.Model{ID: uint(inaraProfileData.UserID)},
+			UserID:          users[i].UserID,
+			Name:            inaraProfileData.UserName,
+			CommanderName:   inaraProfileData.CommanderName,
+			Allegiance:      allegiance,
+			Power:           power,
+			AvatarURL:       inaraProfileData.AvatarImageURL,
+			URL:             inaraProfileData.InaraURL,
+			InaraWingID:     inaraWing.ID,
+			InaraSquadronID: inaraSquadron.ID,
+			CombatRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("combat")).
+				Select(getPilotRankValue).
+				First().(int),
+			CombatProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("combat")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			TradeRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("trade")).
+				Select(getPilotRankValue).
+				First().(int),
+			TradeProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("trade")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			ExplorationRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("exploration")).
+				Select(getPilotRankValue).
+				First().(int),
+			ExplorationProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("exploration")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			CqcRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("cqc")).
+				Select(getPilotRankValue).
+				First().(int),
+			CqcProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("cqc")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			SoldierRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("soldier")).
+				Select(getPilotRankValue).
+				First().(int),
+			SoldierProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("soldier")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			ExobiologistRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("exobiologist")).
+				Select(getPilotRankValue).
+				First().(int),
+			ExobiologistProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("exobiologist")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			EmpireRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("empire")).
+				Select(getPilotRankValue).
+				First().(int),
+			EmpireProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("empire")).
+				Select(getPilotRankProgress).
+				First().(float64),
+			FederationRank: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("federation")).
+				Select(getPilotRankValue).
+				First().(int),
+			FederationProgress: From(inaraProfileData.CommanderRanksPilot).
+				Where(getPilotRankPredicate("federation")).
+				Select(getPilotRankProgress).
+				First().(float64),
+		}
+
+		db.Save(&inaraSquadron)
+		db.Save(&inaraWing)
+		db.Save(&inaraUser)
+
 	}
 
 }
@@ -353,7 +501,7 @@ func DiscordLogParse(discordLog zerolog.Logger) func(msgL int, caller int, forma
 			pC := strings.Count(format[:opI], "%")
 
 			e.Str("op", discordOpCode[int64(a[pC].(int))])
-			linq.From(a).Except(linq.From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
+			From(a).Except(From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
 			format = strings.Join(strings.Split(format, "Op: %d"), "")
 
 		}
@@ -361,7 +509,7 @@ func DiscordLogParse(discordLog zerolog.Logger) func(msgL int, caller int, forma
 			pC := strings.Count(format[:seqI], "%")
 
 			e.Interface("seq", a[pC])
-			linq.From(a).Except(linq.From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
+			From(a).Except(From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
 			format = strings.Join(strings.Split(format, "Seq: %d"), "")
 
 		}
@@ -369,7 +517,7 @@ func DiscordLogParse(discordLog zerolog.Logger) func(msgL int, caller int, forma
 			pC := strings.Count(format[:seqI], "%")
 
 			e.Interface("seq", a[pC])
-			linq.From(a).Except(linq.From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
+			From(a).Except(From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
 			format = strings.Join(strings.Split(format, "seq %d"), "")
 
 		}
@@ -381,7 +529,7 @@ func DiscordLogParse(discordLog zerolog.Logger) func(msgL int, caller int, forma
 				if data != "" {
 					e.Str("type", data)
 				}
-				linq.From(a).Except(linq.From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
+				From(a).Except(From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
 				format = strings.Join(strings.Split(format, "Type: %s"), "")
 			}
 		}
@@ -412,7 +560,7 @@ func DiscordLogParse(discordLog zerolog.Logger) func(msgL int, caller int, forma
 
 					e.RawJSON("data", []byte(data))
 				}
-				linq.From(a).Except(linq.From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
+				From(a).Except(From(a).Where(func(i interface{}) bool { return i == a[pC] })).ToSlice(&a)
 				format = strings.Join(strings.Split(format, "Data: %s"), "")
 			}
 

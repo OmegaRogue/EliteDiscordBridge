@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/ahmetb/go-linq/v3"
 	"github.com/pkg/errors"
 
 	"github.com/go-resty/resty/v2"
@@ -74,4 +75,42 @@ func (api *API) GetProfile(commander string) (Profile, error) {
 		return Profile{}, errors.New(fmt.Sprint("invalid Profile:", commander))
 	}
 	return p.Events[0].EventData, nil
+}
+
+func (api *API) GetProfiles(commanders []string) ([]Profile, error) {
+	data := Data{
+		Header: api.Header,
+		Events: []Event{},
+	}
+
+	for i, commander := range commanders {
+		data.Events = append(
+			data.Events, Event{
+				EventName:      "getCommanderProfile",
+				EventTimestamp: time.Now().Format("2006-01-02T15:04:05Z"),
+				EventCustomID:  i,
+				EventData: struct {
+					SearchName string `json:"searchName"`
+				}{SearchName: commander},
+			},
+		)
+	}
+
+	r, err := api.Client.R().SetBody(data).Post(URL)
+	if err != nil {
+		return nil, errors.Wrap(err, "inara getProfile")
+	}
+	var p Response
+	err = json.Unmarshal(r.Body(), &p)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unmarshal inara profile: %v", string(r.Body()))
+	}
+	for i, event := range p.Events {
+		if event.EventData.UserName == "" {
+			return nil, errors.New(fmt.Sprint("invalid Profile:", commanders[i]))
+		}
+	}
+	var profiles []Profile
+	From(p.Events).Select(func(i interface{}) interface{} { return i.(ResponseEvent).EventData }).ToSlice(&profiles)
+	return profiles, nil
 }
