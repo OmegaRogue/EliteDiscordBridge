@@ -15,7 +15,7 @@ import (
 func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m *discordgo.MessageCreate) error {
 	buildURL, err := url.Parse(content)
 	if err != nil {
-		return errors.Errorf("parse url: %w", err)
+		return errors.Wrap(err, "parse url")
 	}
 
 	ctx, cancel := chromedp.NewContext(ctx)
@@ -35,7 +35,7 @@ func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m 
 		),
 	)
 	if err != nil {
-		return errors.Errorf("browser: %w", err)
+		return errors.Wrap(err, "browser")
 	}
 	utils := "​"
 	optional := "​"
@@ -56,7 +56,7 @@ func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m 
 	}
 	err = s.ChannelMessageDelete(m.ChannelID, m.ID)
 	if err != nil {
-		return errors.Errorf("delete url message: %w", err)
+		return errors.Wrap(err, "delete url message")
 	}
 
 	_, err = s.ChannelMessageSendEmbed(
@@ -185,7 +185,7 @@ func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m 
 		},
 	)
 	if err != nil {
-		return errors.Errorf("send Embed: %w", err)
+		return errors.Wrap(err, "send Embed")
 	}
 
 	return nil

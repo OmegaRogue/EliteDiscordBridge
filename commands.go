@@ -178,19 +178,19 @@ var (
 		"register": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			inaraProfileData, err := inaraClient.GetProfile(i.Data.Options[1].StringValue())
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Msg("get inara profile")
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("get inara profile")
 				return
 			}
 
 			guildFlake, err := snowflake.ParseString(i.GuildID)
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Msg("parse guild snowflake")
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse guild snowflake")
 				return
 			}
-			log.Trace().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
+			log.Trace().Caller().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
 			memberFlake, err := snowflake.ParseString(i.Data.Options[0].UserValue(s).ID)
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Interface(
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Interface(
 					"UserValue",
 					i.Data.Options[0].UserValue(s),
 				).Msg("parse member snowflake")
@@ -223,12 +223,12 @@ var (
 
 			allegiance, err := elite.ParseAllegiance(inaraProfileData.PreferredAllegianceName)
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Msg("parse allegiance")
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse allegiance")
 				return
 			}
 			power, err := elite.ParsePower(inaraProfileData.PreferredPowerName)
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Msg("parse power")
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse power")
 				return
 			}
 			inaraUser := InaraUser{
@@ -335,7 +335,7 @@ var (
 				},
 			)
 			if err != nil {
-				log.Err(err).Interface("InteractionCreate", i).Msg("respond")
+				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("respond")
 				return
 			}
 		},
@@ -348,10 +348,10 @@ var (
 				role := i.Data.Options[0].Options[0].Options[0].RoleValue(s, i.GuildID)
 				roleFlake, err := snowflake.ParseString(role.ID)
 				if err != nil {
-					log.Err(err).Interface("InteractionCreate", i).Msg("parse roleFlake")
+					log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse roleFlake")
 					return
 				}
-				log.Trace().Interface("role", role).Msg("parse role snowflake")
+				log.Trace().Caller().Interface("role", role).Msg("parse role snowflake")
 				dbRole := Role{
 					Model: gorm.Model{ID: uint(roleFlake)},
 				}
@@ -374,7 +374,7 @@ var (
 						},
 					)
 					if err != nil {
-						log.Err(err).Interface("InteractionCreate", i).Msg("error on respond")
+						log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("error on respond")
 						return
 					}
 				case "elite":
@@ -393,7 +393,7 @@ var (
 						},
 					)
 					if err != nil {
-						log.Err(err).Interface("InteractionCreate", i).Msg("error on respond")
+						log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("error on respond")
 						return
 					}
 				}

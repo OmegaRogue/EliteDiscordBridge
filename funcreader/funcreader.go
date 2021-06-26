@@ -7,11 +7,12 @@ import (
 	"go/doc"
 	"go/parser"
 	"go/token"
-	"log"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // FuncPathAndName gets the name and path of a func
@@ -26,7 +27,7 @@ func FuncName(f interface{}) string {
 }
 
 // FuncDescription gets description of a func
-func FuncDescription(f interface{}) string {
+func FuncDescription(f interface{}) (string, error) {
 	fileName, _ := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).FileLine(0)
 	funcName := FuncName(f)
 	fset := token.NewFileSet()
@@ -34,8 +35,7 @@ func FuncDescription(f interface{}) string {
 	// Parse src
 	parsedAst, err := parser.ParseFile(fset, fileName, nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err)
-		return ""
+		return "", errors.Wrap(err, "parse file comments")
 	}
 
 	pkg := &ast.Package{
@@ -48,8 +48,8 @@ func FuncDescription(f interface{}) string {
 	myDoc := doc.New(pkg, importPath, doc.AllDecls)
 	for _, theFunc := range myDoc.Funcs {
 		if theFunc.Name == funcName {
-			return theFunc.Doc
+			return theFunc.Doc, nil
 		}
 	}
-	return ""
+	return "", nil
 }

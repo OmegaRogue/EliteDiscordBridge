@@ -18,7 +18,7 @@ import (
 func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session, m *discordgo.MessageCreate) error {
 	buildURL, err := url.Parse(content)
 	if err != nil {
-		return errors.Errorf("parse url: %w", err)
+		return errors.Wrap(err, "parse url")
 	}
 
 	allocatorContext, cancel := chromedp.NewRemoteAllocator(ctx, "ws://172.27.208.1:9223")
@@ -54,7 +54,7 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 		// ),
 	)
 	if err != nil {
-		return errors.Errorf("browser: %w", err)
+		return errors.Wrap(err, "browser")
 	}
 
 	fmt.Println(res)
@@ -209,7 +209,7 @@ func ShipBuildCoriolis(ctx context.Context, content string, s *discordgo.Session
 		},
 	)
 	if err != nil {
-		return errors.Errorf("send Embed: %w", err)
+		return errors.Wrap(err, "send Embed")
 	}
 
 	return nil
@@ -231,7 +231,7 @@ func devToolHandler(_ string, is ...interface{}) {
 			err := json.Unmarshal([]byte(fmt.Sprintf("%s", elem)), &msg)
 			// possible source of empty msg!!!!!!!!!!!!!
 			if err != nil {
-				log.Err(err).Interface("element", msg).Msg("Faulty element")
+				log.Err(err).Stack().Caller().Interface("element", msg).Msg("Faulty element")
 			}
 
 		}
