@@ -38,6 +38,21 @@ var (
 			},
 		},
 		{
+			Name: "embed",
+			// All commands and options must have a description
+			// Commands/options without description will fail the registration
+			// of the command.
+			Description: "Embeds an EDSY Link",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "url",
+					Description: "EDSY URL",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "link",
 			Description: "Setup links between Discord and Elite Dangerous",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -176,7 +191,7 @@ var (
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 
 		"register": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			inaraProfileData, err := inaraClient.GetProfile(i.Data.Options[1].StringValue())
+			inaraProfileData, err := inaraClient.GetProfile(i.ApplicationCommandData().Options[1].StringValue())
 			if err != nil {
 				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("get inara profile")
 				return
@@ -188,11 +203,11 @@ var (
 				return
 			}
 			log.Trace().Caller().Int64("guild", int64(guildFlake)).Msg("parse guild snowflake")
-			memberFlake, err := snowflake.ParseString(i.Data.Options[0].UserValue(s).ID)
+			memberFlake, err := snowflake.ParseString(i.ApplicationCommandData().Options[0].UserValue(s).ID)
 			if err != nil {
 				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Interface(
 					"UserValue",
-					i.Data.Options[0].UserValue(s),
+					i.ApplicationCommandData().Options[0].UserValue(s),
 				).Msg("parse member snowflake")
 				return
 			}
@@ -329,7 +344,7 @@ var (
 			err = s.InteractionRespond(
 				i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionApplicationCommandResponseData{
+					Data: &discordgo.InteractionResponseData{
 						Content: "Hey there! Congratulations, you just registered to EliteDiscordBridge",
 					},
 				},
@@ -343,9 +358,9 @@ var (
 
 			// As you can see, the name of subcommand (nested, top-level) or subcommand group
 			// is provided through arguments.
-			switch i.Data.Options[0].Name {
+			switch i.ApplicationCommandData().Options[0].Name {
 			case "rank":
-				role := i.Data.Options[0].Options[0].Options[0].RoleValue(s, i.GuildID)
+				role := i.ApplicationCommandData().Options[0].Options[0].Options[0].RoleValue(s, i.GuildID)
 				roleFlake, err := snowflake.ParseString(role.ID)
 				if err != nil {
 					log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse roleFlake")
@@ -356,15 +371,15 @@ var (
 					Model: gorm.Model{ID: uint(roleFlake)},
 				}
 
-				switch i.Data.Options[0].Options[0].Name {
+				switch i.ApplicationCommandData().Options[0].Options[0].Name {
 				case "inara":
-					rank := inara.Rank(i.Data.Options[0].Options[0].Options[1].IntValue())
+					rank := inara.Rank(i.ApplicationCommandData().Options[0].Options[0].Options[1].IntValue())
 					db.Model(&dbRole).Update("inara_rank", rank)
 
 					err := s.InteractionRespond(
 						i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionApplicationCommandResponseData{
+							Data: &discordgo.InteractionResponseData{
 								Content: fmt.Sprintf(
 									"Linked Role %s to inara rank %v",
 									role.Mention(),
@@ -378,12 +393,12 @@ var (
 						return
 					}
 				case "elite":
-					rank := elite.Rank(i.Data.Options[0].Options[0].Options[1].IntValue())
+					rank := elite.Rank(i.ApplicationCommandData().Options[0].Options[0].Options[1].IntValue())
 					db.Model(&dbRole).Update("elite_rank", rank)
 					err := s.InteractionRespond(
 						i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionApplicationCommandResponseData{
+							Data: &discordgo.InteractionResponseData{
 								Content: fmt.Sprintf(
 									"Linked Role %s to elite dangerous rank %v",
 									role.Mention(),
@@ -398,6 +413,17 @@ var (
 					}
 				}
 
+			}
+
+		},
+
+		"embed": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// As you can see, the name of subcommand (nested, top-level) or subcommand group
+			// is provided through arguments.
+			err := ShipBuildEDSY(browserContext, i.ApplicationCommandData().Options[0].StringValue(), s, nil, i)
+			if err != nil {
+				log.Err(err).Stack().Caller().Interface("interaction", i).Msg("Command EDSY Ship Build")
+				return
 			}
 
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	elite "github.com/OmegaRogue/eliteJournal"
 	. "github.com/ahmetb/go-linq/v3"
 	"github.com/bwmarrin/discordgo"
+	"github.com/chromedp/chromedp"
 	"github.com/halink0803/zerolog-graylog-hook/graylog"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -46,6 +48,8 @@ type DiscordContext struct {
 var db *gorm.DB
 
 var inaraClient *inara.API
+
+var browserContext context.Context
 
 func contains(s []int, e int) bool {
 	for _, a := range s {
@@ -285,6 +289,7 @@ func main() {
 	dg.AddHandler(
 		func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if i.Type == discordgo.InteractionApplicationCommand {
+				fmt.Println()
 				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
 					h(s, i)
 				}
@@ -301,7 +306,6 @@ func main() {
 		log.Err(err).Stack().Caller().Msg("open websocket to discord")
 	}
 	log.Info().Caller().Msg("open websocket to discord")
-
 	defer func(dg *discordgo.Session) {
 		err := dg.Close()
 		if err != nil {
@@ -329,16 +333,28 @@ func main() {
 
 	for i, v := range commands {
 
-		v2, err := dg.ApplicationCommandCreate(dg.State.User.ID, GuildID, v)
+		if v.Name == "embed" {
+			v, err = dg.ApplicationCommandCreate(dg.State.User.ID, "", v)
+		} else {
+			v, err = dg.ApplicationCommandCreate(dg.State.User.ID, GuildID, v)
+		}
 		if err != nil {
-			log.Err(err).Stack().Caller().Interface("command", v2).Int("i", i).Msg("create slash command")
+			log.Err(err).Stack().Caller().Interface("command", v).Int("i", i).Msg("create slash command")
 			continue
 		}
-		commands[i] = v2
+		commands[i] = v
 
+	}
+	var browserCancel context.CancelFunc
+	browserContext, browserCancel = chromedp.NewContext(context.TODO())
+	defer browserCancel()
+	err = chromedp.Run(browserContext)
+	if err != nil {
+		log.Err(err).Stack().Caller().Msg("start browser")
 	}
 
 	SyncTimer = time.NewTimer(SyncInterval)
+	log.Info().Caller().Msg("is now running. Press CTRL-C to exit.")
 
 	// Wait here until CTRL-C or other term signal is received.
 	sc := make(chan os.Signal, 1)
@@ -347,11 +363,19 @@ func main() {
 	<-sc
 
 	for i, v := range commands {
+		if v.Name == "embed" {
+			continue
+		}
 		err = dg.ApplicationCommandDelete(dg.State.User.ID, GuildID, v.ID)
 		if err != nil {
 			log.Err(err).Stack().Caller().Int("i", i).Interface("command", v).Msg("delete slash command")
 			continue
 		}
+	}
+
+	err = chromedp.Cancel(browserContext)
+	if err != nil {
+		log.Err(err).Stack().Caller().Msg("gracefully shutdown browser")
 	}
 
 }

@@ -272,7 +272,7 @@ type HardpointSlot struct {
 	Priority     int         `json:"priority"`
 	Bpid         interface{} `json:"bpid"`
 	Bpgrade      int         `json:"bpgrade"`
-	Bproll       int         `json:"bproll"`
+	Bproll       float64     `json:"bproll"`
 	Expid        interface{} `json:"expid"`
 	AttrModifier *struct {
 		Pwrdraw  float64 `json:"pwrdraw"`

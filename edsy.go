@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m *discordgo.MessageCreate) error {
+func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m *discordgo.MessageCreate, i *discordgo.InteractionCreate) error {
 	buildURL, err := url.Parse(content)
 	if err != nil {
 		return errors.Wrap(err, "parse url")
@@ -22,6 +22,18 @@ func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m 
 	defer cancel()
 
 	hash := strings.TrimPrefix(buildURL.Fragment, "/L=")
+
+	if i != nil {
+		err = s.InteractionRespond(
+			i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "send interaction response")
+		}
+
+	}
 
 	var res edsy.Build
 	err = chromedp.Run(
@@ -54,138 +66,167 @@ func ShipBuildEDSY(ctx context.Context, content string, s *discordgo.Session, m 
 	if res.Name == "" {
 		name = res.Slots.Ship.Hull.Module.Name
 	}
-	err = s.ChannelMessageDelete(m.ChannelID, m.ID)
-	if err != nil {
-		return errors.Wrap(err, "delete url message")
+
+	var authorName string
+	var authorIcon string
+	if i != nil {
+		if i.Member != nil {
+			authorName = i.Member.User.Username
+			authorIcon = i.Member.User.AvatarURL("")
+
+		} else if i.User != nil {
+			authorName = i.User.Username
+			authorIcon = i.User.AvatarURL("")
+		}
+	} else if m != nil {
+		authorName = m.Author.Username
+		authorIcon = m.Author.AvatarURL("")
 	}
 
-	_, err = s.ChannelMessageSendEmbed(
-		m.ChannelID, &discordgo.MessageEmbed{
-			URL:   buildURL.String(),
-			Type:  discordgo.EmbedTypeRich,
-			Title: name + "​",
-			Description: fmt.Sprintf(
-				"[%v](%v)​\n[Stations that sell this Build](%v)",
-				res.Slots.Ship.Hull.Module.Name,
-				res.Shipid,
-				res.GetEDDBLink(),
+	eddbLink := res.GetEDDBLink()
+
+	embed := discordgo.MessageEmbed{
+		URL:         buildURL.String(),
+		Type:        discordgo.EmbedTypeRich,
+		Title:       name + "​",
+		Description: fmt.Sprintf("[%v](%v)\n[Stations that sell this Build](%v)​", res.Slots.Ship.Hull.Module.Name, res.Shipid, eddbLink),
+		Timestamp:   "",
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: fmt.Sprintf(
+				"https://edassets.org/static/img/ship-schematics/qohen-leth/%v.png",
+				EDSYShips[res.Slots.Ship.Hull.Module.Fdname],
 			),
-			Timestamp: "",
-			Thumbnail: &discordgo.MessageEmbedThumbnail{
-				URL: fmt.Sprintf(
-					"https://edassets.org/static/img/ship-schematics/qohen-leth/%v.png",
-					EDSYShips[res.Slots.Ship.Hull.Module.Fdname],
+			Width:  3000,
+			Height: 3000,
+		},
+		Color: 0xC06400,
+		Provider: &discordgo.MessageEmbedProvider{
+			URL:  "https://coriolis.io",
+			Name: "Coriolis",
+		},
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    authorName + "​",
+			IconURL: authorIcon,
+		},
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "Speed",
+				Value:  fmt.Sprintf("%.2f", res.Stats.Speed),
+				Inline: true,
+			},
+			{
+				Name:   "Boost",
+				Value:  fmt.Sprintf("%.2f", res.Stats.Boost),
+				Inline: true,
+			},
+			{
+				Name:   "​",
+				Value:  "​",
+				Inline: true,
+			},
+			{
+				Name:   "Laden Jump Range",
+				Value:  fmt.Sprintf("%.2f", res.Stats.JumpLaden),
+				Inline: true,
+			},
+			{
+				Name:   "Total Laden Range",
+				Value:  fmt.Sprintf("%.2f", res.Stats.RangeLaden),
+				Inline: true,
+			},
+			{
+				Name:   "​",
+				Value:  "​",
+				Inline: true,
+			},
+			{
+				Name:   "Shield",
+				Value:  fmt.Sprintf("%.2f", res.Stats.Shields),
+				Inline: true,
+			},
+			{
+				Name:   "Integrity",
+				Value:  fmt.Sprintf("%.2f", res.Stats.Armour),
+				Inline: true,
+			},
+			{
+				Name:   "​",
+				Value:  "​",
+				Inline: true,
+			},
+			{
+				Name:   "Cargo",
+				Value:  fmt.Sprint(res.Stats.Cargocap),
+				Inline: true,
+			},
+			{
+				Name:   "Passengers",
+				Value:  fmt.Sprint(res.Stats.Cabincap),
+				Inline: true,
+			},
+			{
+				Name:   "Fuel",
+				Value:  fmt.Sprint(res.Stats.Fuelcap),
+				Inline: true,
+			},
+			{
+				Name:   "Core Internal",
+				Value:  fmt.Sprintln(res.Slots.Component),
+				Inline: true,
+			},
+			{
+				Name:   "Optional Internal",
+				Value:  optional,
+				Inline: true,
+			},
+			{
+				Name:   "Hardpoints",
+				Value:  hard,
+				Inline: true,
+			},
+			{
+				Name:   "Utility",
+				Value:  utils,
+				Inline: true,
+			},
+			{
+				Name: "Cost",
+				Value: fmt.Sprintf(
+					"```diff\nCost:         %v\nRebuy Cost:   %v\nRestock Cost: %v\nRearm Cost:   %v\nVehicle Cost: %v\n```\n",
+					strings.Replace(fmt.Sprintf("% 12d", res.Stats.Cost), " ", ".", -1),
+					strings.Replace(fmt.Sprintf("% 12d", int(float32(res.Stats.Cost)*0.05)), " ", ".", -1),
+					strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostRestock), " ", ".", -1),
+					strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostRearm), " ", ".", -1),
+					strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostVehicle), " ", ".", -1),
 				),
-				Width:  3000,
-				Height: 3000,
-			},
-			Color: 0xC06400,
-			Provider: &discordgo.MessageEmbedProvider{
-				URL:  "https://coriolis.io",
-				Name: "Coriolis",
-			},
-			Author: &discordgo.MessageEmbedAuthor{
-				Name:    m.Author.Username + "​",
-				IconURL: m.Author.AvatarURL(""),
-			},
-			Fields: []*discordgo.MessageEmbedField{
-				{
-					Name:   "Speed",
-					Value:  fmt.Sprintf("%.2f", res.Stats.Speed),
-					Inline: true,
-				},
-				{
-					Name:   "Boost",
-					Value:  fmt.Sprintf("%.2f", res.Stats.Boost),
-					Inline: true,
-				},
-				{
-					Name:   "​",
-					Value:  "​",
-					Inline: true,
-				},
-				{
-					Name:   "Laden Jump Range",
-					Value:  fmt.Sprintf("%.2f", res.Stats.JumpLaden),
-					Inline: true,
-				},
-				{
-					Name:   "Total Laden Range",
-					Value:  fmt.Sprintf("%.2f", res.Stats.RangeLaden),
-					Inline: true,
-				},
-				{
-					Name:   "​",
-					Value:  "​",
-					Inline: true,
-				},
-				{
-					Name:   "Shield",
-					Value:  fmt.Sprintf("%.2f", res.Stats.Shields),
-					Inline: true,
-				},
-				{
-					Name:   "Integrity",
-					Value:  fmt.Sprintf("%.2f", res.Stats.Armour),
-					Inline: true,
-				},
-				{
-					Name:   "​",
-					Value:  "​",
-					Inline: true,
-				},
-				{
-					Name:   "Cargo",
-					Value:  fmt.Sprint(res.Stats.Cargocap),
-					Inline: true,
-				},
-				{
-					Name:   "Passengers",
-					Value:  fmt.Sprint(res.Stats.Cabincap),
-					Inline: true,
-				},
-				{
-					Name:   "Fuel",
-					Value:  fmt.Sprint(res.Stats.Fuelcap),
-					Inline: true,
-				},
-				{
-					Name:   "Core Internal",
-					Value:  fmt.Sprintln(res.Slots.Component),
-					Inline: true,
-				},
-				{
-					Name:   "Optional Internal",
-					Value:  optional,
-					Inline: true,
-				},
-				{
-					Name:   "Hardpoints",
-					Value:  hard,
-					Inline: true,
-				},
-				{
-					Name:   "Utility",
-					Value:  utils,
-					Inline: true,
-				},
-				{
-					Name: "Cost",
-					Value: fmt.Sprintf(
-						"```diff\nCost:         %v\nRebuy Cost:   %v\nRestock Cost: %v\nRearm Cost:   %v\nVehicle Cost: %v\n```\n",
-						strings.Replace(fmt.Sprintf("% 12d", res.Stats.Cost), " ", ".", -1),
-						strings.Replace(fmt.Sprintf("% 12d", int(float32(res.Stats.Cost)*0.05)), " ", ".", -1),
-						strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostRestock), " ", ".", -1),
-						strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostRearm), " ", ".", -1),
-						strings.Replace(fmt.Sprintf("% 12d", res.Stats.CostVehicle), " ", ".", -1),
-					),
-					Inline: false,
-				},
+				Inline: false,
 			},
 		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "send Embed")
+	}
+	if m != nil {
+		err = s.ChannelMessageDelete(m.ChannelID, m.ID)
+		if err != nil {
+			return errors.Wrap(err, "delete url message")
+		}
+
+		_, err = s.ChannelMessageSendEmbed(
+			m.ChannelID, &embed,
+		)
+		if err != nil {
+			return errors.Wrap(err, "send Embed")
+		}
+		return nil
+	}
+
+	if i != nil {
+		err = s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+
+			Embeds: []*discordgo.MessageEmbed{&embed},
+		})
+		if err != nil {
+			return errors.Wrap(err, "update interaction response")
+		}
+
 	}
 
 	return nil

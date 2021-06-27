@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	"edDiscord/inara"
@@ -336,7 +335,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// 	}
 	// }
 	if strings.Contains(m.Content, "edsy") {
-		err = ShipBuildEDSY(context.TODO(), m.Content, s, m)
+		err = ShipBuildEDSY(browserContext, m.Content, s, m, nil)
 		if err != nil {
 			log.Err(err).Stack().Caller().Interface("message", m).Msg("Command EDSY Ship Build")
 			return
