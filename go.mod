@@ -7,7 +7,7 @@ require (
 	github.com/ahmetb/go-linq/v3 v3.2.0
 	github.com/aphistic/golf v0.0.0-20180712155816-02c07f170c5a // indirect
 	github.com/aphistic/sweet v0.3.0 // indirect
-	github.com/bwmarrin/discordgo v0.23.3-0.20210617211910-e72c457cb4ae
+	github.com/bwmarrin/discordgo v0.23.3-0.20210627161652-421e14965030
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/chromedp/cdproto v0.0.0-20210526005521-9e51b9051fd0
 	github.com/chromedp/chromedp v0.7.3

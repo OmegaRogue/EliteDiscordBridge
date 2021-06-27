@@ -69,5 +69,5 @@ func (l *logger) Trace(ctx context.Context, begin time.Time, fc func() (string, 
 		return
 	}
 
-	l.Logger.Debug().Fields(fields).Msgf("query")
+	l.Logger.Trace().Fields(fields).Msgf("query")
 }

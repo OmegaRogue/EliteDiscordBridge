@@ -284,9 +284,13 @@ func main() {
 	// ../../../../../../home/omegarogue/go/pkg/mod/github.com/bwmarrin/discordgo@v0.23.3-0.20210617211910-e72c457cb4ae/logging.go:77
 	dg.AddHandler(
 		func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if h, ok := commandHandlers[i.Data.Name]; ok {
-				h(s, i)
+			if i.Type == discordgo.InteractionApplicationCommand {
+				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+					h(s, i)
+				}
+			} else if i.Type == discordgo.InteractionMessageComponent {
 			}
+
 		},
 	)
 	log.Debug().Caller().Msg("register handler for InteractionCreate Event")
@@ -333,8 +337,6 @@ func main() {
 		commands[i] = v2
 
 	}
-
-	log.Info().Caller().Msg("is now running. Press CTRL-C to exit.")
 
 	SyncTimer = time.NewTimer(SyncInterval)
 
