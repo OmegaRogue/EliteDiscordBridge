@@ -243,8 +243,10 @@ var (
 			}
 			power, err := elite.ParsePower(inaraProfileData.PreferredPowerName)
 			if err != nil {
-				log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse power")
-				return
+				if err.Error() != " is not a valid Power" {
+					log.Err(err).Stack().Caller().Interface("InteractionCreate", i).Msg("parse power")
+					return
+				}
 			}
 			inaraUser := InaraUser{
 				Model:           gorm.Model{ID: uint(inaraProfileData.UserID)},

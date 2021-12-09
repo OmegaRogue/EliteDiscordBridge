@@ -333,11 +333,11 @@ func main() {
 
 	for i, v := range commands {
 
-		if v.Name == "embed" {
-			v, err = dg.ApplicationCommandCreate(dg.State.User.ID, "", v)
-		} else {
-			v, err = dg.ApplicationCommandCreate(dg.State.User.ID, GuildID, v)
-		}
+		// if v.Name == "embed" {
+		// 	v, err = dg.ApplicationCommandCreate(dg.State.User.ID, "", v)
+		// } else {
+		v, err = dg.ApplicationCommandCreate(dg.State.User.ID, GuildID, v)
+		// }
 		if err != nil {
 			log.Err(err).Stack().Caller().Interface("command", v).Int("i", i).Msg("create slash command")
 			continue
@@ -363,9 +363,9 @@ func main() {
 	<-sc
 
 	for i, v := range commands {
-		if v.Name == "embed" {
-			continue
-		}
+		// if v.Name == "embed" {
+		// 	continue
+		// }
 		err = dg.ApplicationCommandDelete(dg.State.User.ID, GuildID, v.ID)
 		if err != nil {
 			log.Err(err).Stack().Caller().Int("i", i).Interface("command", v).Msg("delete slash command")

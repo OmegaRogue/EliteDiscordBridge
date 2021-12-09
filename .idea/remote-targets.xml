@@ -13,6 +13,9 @@
             <option name="goRoot" value="/usr/local/go/bin/go" />
           </config>
         </ContributedStateBase>
+        <ContributedStateBase type="GoLanguageRuntime">
+          <config />
+        </ContributedStateBase>
       </target>
     </targets>
   </component>
